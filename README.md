@@ -1,7 +1,7 @@
 # lua-resty-array
 Lua array inspired by [javascript array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array).
 # Synopsis
-```
+```lua
 local array = require("resty.array")
 assert(array{1,2,3} + array{3,4} == array{1,2,3,3,4})
 assert(array{1,2,3} - array{3,4} == array{1,2})
@@ -58,11 +58,11 @@ assert(array{1,2,2,3,4,4,4,5}:uniq()==array{1,2,3,4,5})
 # Special Note
 ## resolving index is different from javascript
 for starting index, `1` and `0` both means the first element. For example:
-```
+```lua
 assert(array{1,2,3,4}:slice(0) == array{1,2,3,4}:slice(1))
 ```
 for ending index, both `array.slice(t, start, end)` and `array.fill(t, value, start, end)` are inclusive. For example:
-```
+```lua
 assert(array{1,2,3,4}:slice(1, 2) == array{1,2})
 assert(array{0,0,0,0}:fill(8, 1, 4) == array{8,8,8,8})
 ```
