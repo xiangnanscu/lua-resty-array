@@ -67,7 +67,7 @@ function array.concat(...)
   for i = 1, m do
     n = n + #select(i, ...)
   end
-  local res = array:new(table_new(n, 0))
+  local res = setmetatable(table_new(n, 0), array)
   n = 0
   for i = 1, m do
     local e = select(i, ...)
@@ -81,7 +81,7 @@ end
 
 function array.entries(self)
   local n = #self
-  local res = array:new(table_new(n, 0))
+  local res = setmetatable(table_new(n, 0), array)
   for i = 1, n do
     res[i] = { i, self[i] }
   end
@@ -107,7 +107,7 @@ function array.fill(self, v, s, e)
 end
 
 function array.filter(self, callback)
-  local res = array:new()
+  local res = setmetatable({}, array)
   for i = 1, #self do
     if callback(self[i], i, self) then
       res[#res + 1] = self[i]
@@ -158,7 +158,7 @@ function array.flat(self, depth)
   end
   if depth > 0 then
     local n = #self
-    local res = array:new(table_new(n, 0))
+    local res = setmetatable(table_new(n, 0), array)
     for i = 1, #self do
       local v = self[i]
       if type(v) == "table" then
@@ -172,14 +172,14 @@ function array.flat(self, depth)
     end
     return res
   else
-    return array:new(clone(self))
+    return setmetatable(clone(self), array)
   end
 end
 
 function array.flat_map(self, callback)
   -- equivalent to self:map(callback):flat(1), more efficient
   local n = #self
-  local res = array:new(table_new(n, 0))
+  local res = setmetatable(table_new(n, 0), array)
   for i = 1, n do
     local v = callback(self[i], i, self)
     if type(v) == "table" then
@@ -208,7 +208,7 @@ function array.group_by(self, callback)
   for i = 1, #self do
     local key = callback(self[i], i, self)
     if not res[key] then
-      res[key] = array:new()
+      res[key] = setmetatable({}, array)
     end
     res[key][#res[key] + 1] = self[i]
   end
@@ -245,7 +245,7 @@ end
 
 function array.keys(self)
   local n = #self
-  local res = array:new(table_new(n, 0))
+  local res = setmetatable(table_new(n, 0), array)
   for i = 1, n do
     res[i] = i
   end
@@ -266,7 +266,7 @@ array.lastIndexOf = array.last_index_of
 
 function array.map(self, callback)
   local n = #self
-  local res = array:new(table_new(n, 0))
+  local res = setmetatable(table_new(n, 0), array)
   for i = 1, n do
     res[i] = callback(self[i], i, self)
   end
@@ -331,7 +331,7 @@ function array.shift(self)
 end
 
 function array.slice(self, s, e)
-  local res = array:new()
+  local res = setmetatable({}, array)
   s = resolve_index(self, s)
   e = resolve_index(self, e, true)
   for i = s, e do
@@ -362,7 +362,7 @@ function array.splice(self, s, del_cnt, ...)
   elseif del_cnt <= 0 then
     del_cnt = 0
   end
-  local removed = array:new()
+  local removed = setmetatable({}, array)
   for i = s, del_cnt + s - 1 do
     table_insert(removed, table_remove(self, s))
   end
@@ -383,7 +383,7 @@ function array.unshift(self, ...)
 end
 
 function array.values(self)
-  return array:new(clone(self))
+  return setmetatable(clone(self), array)
 end
 
 -- other methods
@@ -393,7 +393,7 @@ function array.group_by_key(self, key)
   for i = 1, #self do
     local k = self[i][key]
     if not res[k] then
-      res[k] = array:new()
+      res[k] = setmetatable({}, array)
     end
     res[k][#res[k] + 1] = self[i]
   end
@@ -402,7 +402,7 @@ end
 
 function array.map_key(self, key)
   local n = #self
-  local res = array:new(table_new(n, 0))
+  local res = setmetatable(table_new(n, 0), array)
   for i = 1, n do
     res[i] = self[i][key]
   end
@@ -432,7 +432,7 @@ array.duplicate = array.dup
 local FIRST_DUP_ADDED = {}
 function array.dups(self)
   local already = {}
-  local res = array:new()
+  local res = setmetatable({}, array)
   for i = 1, #self do
     local e = self[i]
     local a = already[e]
@@ -464,7 +464,7 @@ end
 
 function array.dups_map(self, callback)
   local already = {}
-  local res = array:new()
+  local res = setmetatable({}, array)
   for i = 1, #self do
     local e = self[i]
     local k = callback(e, i, self)
@@ -484,7 +484,7 @@ end
 
 function array.uniq(self)
   local already = {}
-  local res = array:new()
+  local res = setmetatable({}, array)
   for i = 1, #self do
     local key = self[i]
     if not already[key] then
@@ -497,7 +497,7 @@ end
 
 function array.uniq_map(self, callback)
   local already = {}
-  local res = array:new()
+  local res = setmetatable({}, array)
   for i = 1, #self do
     local key = callback(self[i], i, self)
     if not already[key] then
@@ -544,7 +544,7 @@ end
 
 -- {1,2} - {2,3} = {1}
 function array.__sub(self, o)
-  local res = array:new()
+  local res = setmetatable({}, array)
   local od = o:as_set()
   for i = 1, #self do
     if not od[self[i]] then
@@ -555,7 +555,7 @@ function array.__sub(self, o)
 end
 
 function array.exclude(self, callback)
-  local res = array:new()
+  local res = setmetatable({}, array)
   for i = 1, #self do
     if not callback(self[i], i, self) then
       res[#res + 1] = self[i]
