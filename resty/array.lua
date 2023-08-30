@@ -1,4 +1,3 @@
-local set = require("resty.set")
 local table_concat = table.concat
 local table_remove = table.remove
 local table_insert = table.insert
@@ -15,35 +14,35 @@ else
   table_new = function(narray, nhash)
     return {}
   end
-  table_clear = function(t)
-    for key, _ in pairs(t) do
-      t[key] = nil
+  table_clear = function(self)
+    for key, _ in pairs(self) do
+      self[key] = nil
     end
   end
-  clone = function(t)
+  clone = function(self)
     local copy = {}
-    for key, value in pairs(t) do
+    for key, value in pairs(self) do
       copy[key] = value
     end
     return copy
   end
 end
 
-local function resolve_index(t, index, is_end, no_max)
+local function resolve_index(self, index, is_end, no_max)
   if index == nil then
-    return is_end and #t or 1
+    return is_end and #self or 1
   elseif index == 0 then
     return 1
   elseif index < 0 then
-    if #t + index >= 0 then
-      return #t + index + 1
+    if #self + index >= 0 then
+      return #self + index + 1
     else
       return 1
     end
-  -- index >= 1
-  elseif index > #t then
+    -- index >= 1
+  elseif index > #self then
     if not no_max then
-      return #t == 0 and 1 or #t
+      return #self == 0 and 1 or #self
     else
       return index
     end
@@ -53,13 +52,13 @@ local function resolve_index(t, index, is_end, no_max)
 end
 
 local array = setmetatable({}, {
-  __call = function(t, attrs)
-    return setmetatable(attrs or {}, t)
+  __call = function(self, attrs)
+    return setmetatable(attrs or {}, self)
   end
 })
 array.__index = array
-function array.new(cls, t)
-  return setmetatable(t or {}, cls)
+function array.new(cls, self)
+  return setmetatable(self or {}, cls)
 end
 
 function array.concat(...)
@@ -80,72 +79,88 @@ function array.concat(...)
   return res
 end
 
-function array.entries(t)
-  local n = #t
+function array.entries(self)
+  local n = #self
   local res = array:new(table_new(n, 0))
   for i = 1, n do
-    res[i] = {i, t[i]}
+    res[i] = { i, self[i] }
   end
   return res
 end
 
-function array.every(t, callback)
-  for i = 1, #t do
-    if not callback(t[i], i, t) then
+function array.every(self, callback)
+  for i = 1, #self do
+    if not callback(self[i], i, self) then
       return false
     end
   end
   return true
 end
 
-function array.fill(t, v, s, e)
-  s = resolve_index(t, s)
-  e = resolve_index(t, e, true)
+function array.fill(self, v, s, e)
+  s = resolve_index(self, s)
+  e = resolve_index(self, e, true, true)
   for i = s, e do
-    t[i] = v
+    self[i] = v
   end
-  return t
+  return self
 end
 
-function array.filter(t, callback)
+function array.filter(self, callback)
   local res = array:new()
-  for i = 1, #t do
-    if callback(t[i], i, t) then
-      res[#res + 1] = t[i]
+  for i = 1, #self do
+    if callback(self[i], i, self) then
+      res[#res + 1] = self[i]
     end
   end
   return res
 end
 
-function array.find(t, callback)
-  for i = 1, #t do
-    if callback(t[i], i, t) then
-      return t[i]
+function array.find(self, callback)
+  if type(callback) == 'function' then
+    for i = 1, #self do
+      if callback(self[i], i, self) then
+        return self[i]
+      end
+    end
+  else
+    for i = 1, #self do
+      if self[i] == callback then
+        return self[i]
+      end
     end
   end
 end
 
-function array.find_index(t, callback)
-  for i = 1, #t do
-    if callback(t[i], i, t) then
-      return i
+function array.find_index(self, callback)
+  if type(callback) == 'function' then
+    for i = 1, #self do
+      if callback(self[i], i, self) then
+        return i
+      end
+    end
+  else
+    for i = 1, #self do
+      if self[i] == callback  then
+        return i
+      end
     end
   end
   return -1
 end
+
 array.findIndex = array.find_index
 
-
-function array.flat(t, depth)
+function array.flat(self, depth)
   -- [0, 1, 2, [3, 4]] => [0, 1, 2, 3, 4]
   if depth == nil then
     depth = 1
   end
   if depth > 0 then
-    local n = #t
+    local n = #self
     local res = array:new(table_new(n, 0))
-    for i = 1, #t do
-      local v = t[i]
+    for i = 1, #self do
+      local v = self[i]
       if type(v) == "table" then
         local vt = array.flat(v, depth - 1)
         for j = 1, #vt do
@@ -157,16 +172,16 @@ function array.flat(t, depth)
     end
     return res
   else
-    return array:new(clone(t))
+    return array:new(clone(self))
   end
 end
 
-function array.flat_map(t, callback)
-  -- equivalent to t:map(callback):flat(1), more efficient
-  local n = #t
+function array.flat_map(self, callback)
+  -- equivalent to self:map(callback):flat(1), more efficient
+  local n = #self
   local res = array:new(table_new(n, 0))
   for i = 1, n do
-    local v = callback(t[i], i, t)
+    local v = callback(self[i], i, self)
     if type(v) == "table" then
       for j = 1, #v do
         res[#res + 1] = v[j]
@@ -177,56 +192,59 @@ function array.flat_map(t, callback)
   end
   return res
 end
+
 array.flatMap = array.flat_map
 
-function array.for_each(t, callback)
-  for i = 1, #t do
-    callback(t[i], i, t)
+function array.for_each(self, callback)
+  for i = 1, #self do
+    callback(self[i], i, self)
   end
 end
+
 array.forEach = array.for_each
 
-function array.group_by(t, callback)
+function array.group_by(self, callback)
   local res = {}
-  for i = 1, #t do
-    local key = callback(t[i], i, t)
+  for i = 1, #self do
+    local key = callback(self[i], i, self)
     if not res[key] then
       res[key] = array:new()
     end
-    res[key][#res[key] + 1] = t[i]
+    res[key][#res[key] + 1] = self[i]
   end
   return res
 end
 
-function array.includes(t, value, s)
+function array.includes(self, value, s)
   -- array{'a', 'b', 'c'}:includes('c', 3)    // true
   -- array{'a', 'b', 'c'}:includes('c', 100)  // false
-  s = resolve_index(t, s, false, true)
-  for i = s, #t do
-    if t[i] == value then
+  s = resolve_index(self, s, false, true)
+  for i = s, #self do
+    if self[i] == value then
       return true
     end
   end
   return false
 end
 
-function array.index_of(t, value, s)
-  s = resolve_index(t, s, false, true)
-  for i = s, #t do
-    if t[i] == value then
+function array.index_of(self, value, s)
+  s = resolve_index(self, s, false, true)
+  for i = s, #self do
+    if self[i] == value then
       return i
     end
   end
   return -1
 end
+
 array.indexOf = array.index_of
 
-function array.join(t, sep)
-  return table_concat(t, sep)
+function array.join(self, sep)
+  return table_concat(self, sep)
 end
 
-function array.keys(t)
-  local n = #t
+function array.keys(self)
+  local n = #self
   local res = array:new(table_new(n, 0))
   for i = 1, n do
     res[i] = i
@@ -234,109 +252,111 @@ function array.keys(t)
   return res
 end
 
-function array.last_index_of(t, value, s)
-  s = resolve_index(t, s, false, true)
+function array.last_index_of(self, value, s)
+  s = resolve_index(self, s, false, true)
   for i = s, 1, -1 do
-    if t[i] == value then
+    if self[i] == value then
       return i
     end
   end
   return -1
 end
+
 array.lastIndexOf = array.last_index_of
 
-function array.map(t, callback)
-  local n = #t
+function array.map(self, callback)
+  local n = #self
   local res = array:new(table_new(n, 0))
   for i = 1, n do
-    res[i] = callback(t[i], i, t)
+    res[i] = callback(self[i], i, self)
   end
   return res
 end
 
-function array.pop(t)
-  return table_remove(t)
+function array.pop(self)
+  return table_remove(self)
 end
 
-function array.push(t, ...)
-  local n = #t
+function array.push(self, ...)
+  local n = #self
   for i = 1, select("#", ...) do
-    t[n + i] = select(i, ...)
+    self[n + i] = select(i, ...)
   end
-  return #t
+  return #self
 end
 
-function array.reduce(t, callback, init)
+function array.reduce(self, callback, init)
   local i = 1
   if init == nil then
-    init = t[1]
+    init = self[1]
     i = 2
   end
-  if init == nil and #t == 0 then
+  if init == nil and #self == 0 then
     error("Reduce of empty array with no initial value")
   end
-  for j = i, #t do
-    init = callback(init, t[j], j, t)
+  for j = i, #self do
+    init = callback(init, self[j], j, self)
   end
   return init
 end
 
-function array.reduce_right(t, callback, init)
-  local i = #t
+function array.reduce_right(self, callback, init)
+  local i = #self
   if init == nil then
-    init = t[i]
+    init = self[i]
     i = i - 1
   end
-  if init == nil and #t == 0 then
+  if init == nil and #self == 0 then
     error("Reduce of empty array with no initial value")
   end
   for j = i, 1, -1 do
-    init = callback(init, t[j], j, t)
+    init = callback(init, self[j], j, self)
   end
   return init
 end
+
 array.reduceRright = array.reduce_right
 
-function array.reverse(t)
-  local n = #t
+function array.reverse(self)
+  local n = #self
   local e = n % 2 == 0 and n / 2 or (n - 1) / 2
   for i = 1, e do
-    t[i], t[n + 1 - i] = t[n + 1 - i], t[i]
+    self[i], self[n + 1 - i] = self[n + 1 - i], self[i]
   end
-  return t
+  return self
 end
 
-function array.shift(t)
-  return table_remove(t, 1)
+function array.shift(self)
+  return table_remove(self, 1)
 end
 
-function array.slice(t, s, e)
+function array.slice(self, s, e)
   local res = array:new()
-  s = resolve_index(t, s)
-  e = resolve_index(t, e, true)
+  s = resolve_index(self, s)
+  e = resolve_index(self, e, true)
   for i = s, e do
-    res[#res + 1] = t[i]
+    res[#res + 1] = self[i]
   end
   return res
 end
 
-function array.some(t, callback)
-  for i = 1, #t do
-    if callback(t[i], i, t) then
+function array.some(self, callback)
+  for i = 1, #self do
+    if callback(self[i], i, self) then
       return true
     end
   end
   return false
 end
 
-function array.sort(t, callback)
-  table_sort(t, callback)
-  return t
+function array.sort(self, callback)
+  table_sort(self, callback)
+  return self
 end
 
-function array.splice(t, s, del_cnt, ...)
-  local n = #t
-  s = resolve_index(t, s)
+function array.splice(self, s, del_cnt, ...)
+  local n = #self
+  s = resolve_index(self, s)
   if del_cnt == nil or del_cnt >= n - s + 1 then
     del_cnt = n - s + 1
   elseif del_cnt <= 0 then
@@ -344,61 +364,61 @@ function array.splice(t, s, del_cnt, ...)
   end
   local removed = array:new()
   for i = s, del_cnt + s - 1 do
-    table_insert(removed, table_remove(t, s))
+    table_insert(removed, table_remove(self, s))
   end
   for i = select("#", ...), 1, -1 do
     local e = select(i, ...)
-    table_insert(t, s, e)
+    table_insert(self, s, e)
   end
   return removed
 end
 
-function array.unshift(t, ...)
+function array.unshift(self, ...)
   local n = select("#", ...)
   for i = n, 1, -1 do
     local e = select(i, ...)
-    table_insert(t, 1, e)
+    table_insert(self, 1, e)
   end
-  return #t
+  return #self
 end
 
-function array.values(t)
-  return array:new(clone(t))
+function array.values(self)
+  return array:new(clone(self))
 end
 
 -- other methods
 
-function array.group_by_key(t, attr)
+function array.group_by_key(self, key)
   local res = {}
-  for i = 1, #t do
-    local key = t[i][attr]
-    if not res[key] then
-      res[key] = array:new()
+  for i = 1, #self do
+    local k = self[i][key]
+    if not res[k] then
+      res[k] = array:new()
     end
-    res[key][#res[key] + 1] = t[i]
+    res[k][#res[k] + 1] = self[i]
   end
   return res
 end
 
-function array.map_key(t, key)
-  local n = #t
+function array.map_key(self, key)
+  local n = #self
   local res = array:new(table_new(n, 0))
   for i = 1, n do
-    res[i] = t[i][key]
+    res[i] = self[i][key]
   end
   return res
 end
 
 array.sub = array.slice
 
-function array.clear(t)
-  return table_clear(t)
+function array.clear(self)
+  return table_clear(self)
 end
 
-function array.dup(t)
+function array.dup(self)
   local already = {}
-  for i = 1, #t do
-    local e = t[i]
+  for i = 1, #self do
+    local e = self[i]
     if already[e] then
       return e
     else
@@ -406,14 +426,15 @@ function array.dup(t)
     end
   end
 end
+
 array.duplicate = array.dup
 
 local FIRST_DUP_ADDED = {}
-function array.dups(t)
+function array.dups(self)
   local already = {}
   local res = array:new()
-  for i = 1, #t do
-    local e = t[i]
+  for i = 1, #self do
+    local e = self[i]
     local a = already[e]
     if a ~= nil then
       if a ~= FIRST_DUP_ADDED then
@@ -428,11 +449,11 @@ function array.dups(t)
   return res
 end
 
-function array.dup_map(t, callback)
+function array.dup_map(self, callback)
   local already = {}
-  for i = 1, #t do
-    local e = t[i]
-    local k = callback(e, i, t)
+  for i = 1, #self do
+    local e = self[i]
+    local k = callback(e, i, self)
     if already[k] then
       return e
     else
@@ -441,12 +462,12 @@ function array.dup_map(t, callback)
   end
 end
 
-function array.dups_map(t, callback)
+function array.dups_map(self, callback)
   local already = {}
   local res = array:new()
-  for i = 1, #t do
-    local e = t[i]
-    local k = callback(e, i, t)
+  for i = 1, #self do
+    local e = self[i]
+    local k = callback(e, i, self)
     local a = already[k]
     if a ~= nil then
       if a ~= FIRST_DUP_ADDED then
@@ -461,11 +482,11 @@ function array.dups_map(t, callback)
   return res
 end
 
-function array.uniq(t)
+function array.uniq(self)
   local already = {}
   local res = array:new()
-  for i = 1, #t do
-    local key = t[i]
+  for i = 1, #self do
+    local key = self[i]
     if not already[key] then
       res[#res + 1] = key
       already[key] = true
@@ -474,119 +495,111 @@ function array.uniq(t)
   return res
 end
 
-function array.uniq_map(t, callback)
+function array.uniq_map(self, callback)
   local already = {}
   local res = array:new()
-  for i = 1, #t do
-    local key = callback(t[i], i, t)
+  for i = 1, #self do
+    local key = callback(self[i], i, self)
     if not already[key] then
-      res[#res + 1] = t[i]
+      res[#res + 1] = self[i]
       already[key] = true
     end
   end
   return res
 end
 
-function array.as_set(t)
-  local res = set:new(table_new(0, #t))
-  for i = 1, #t do
-    res[t[i]] = true
+function array.as_set(self)
+  local res = table_new(0, #self)
+  for i = 1, #self do
+    res[self[i]] = true
   end
   return res
 end
 
-function array.equals(t, o)
-  if type(o) ~= 'table' or #o ~= #t then
+function array.equals(self, o)
+  if type(o) ~= 'table' or #o ~= #self then
     return false
   end
-  for i = 1, #t do
-    local tt, ot = type(t[i]), type(o[i])
+  for i = 1, #self do
+    local tt, ot = type(self[i]), type(o[i])
     if tt ~= ot then
       return false
     elseif tt ~= 'table' then
-      if t[i] ~= o[i] then
+      if self[i] ~= o[i] then
         return false
       end
-    elseif not array.equals(t[i], o[i]) then
+    elseif not array.equals(self[i], o[i]) then
       return false
     end
   end
   return true
 end
+
 -- {1,2} == {1,2}
 array.__eq = array.equals
 -- {1,2} + {2,3} = {1,2,2,3}
-function array.__add(t, o)
-  return array.concat(t, o)
+function array.__add(self, o)
+  return array.concat(self, o)
 end
+
 -- {1,2} - {2,3} = {1}
-function array.__sub(t, o)
+function array.__sub(self, o)
   local res = array:new()
   local od = o:as_set()
-  for i = 1, #t do
-    if not od[t[i]] then
-      res[#res + 1] = t[i]
+  for i = 1, #self do
+    if not od[self[i]] then
+      res[#res + 1] = self[i]
     end
   end
   return res
 end
 
-if select('#', ...) == 0 then
-  local inspect = require "resty.inspect"
-  local p = function(e)
-    print(inspect(e))
+function array.exclude(self, callback)
+  local res = array:new()
+  for i = 1, #self do
+    if not callback(self[i], i, self) then
+      res[#res + 1] = self[i]
+    end
   end
-  assert(array{1,2,3} + array{3,4} == array{1,2,3,3,4})
-  assert(array{1,2,3} - array{3,4} == array{1,2})
-  assert(array{'a','b','c'}:entries() == array{{1,'a'},{2,'b'},{3,'c'}})
-  assert(array{1,2,3}:every(function(n) return n > 0 end) == true)
-  assert(array{0,0,0}:fill(8) == array{8,8,8})
-  assert(array{0,0,0}:fill(8,2,3) == array{0,8,8})
-  assert(array{1,'not',3,'number'}:filter(function(e) return tonumber(e) end) == array{1,3})
-  assert(array{{id=1},{id=101}, {id=3}}:find(function(e) return e.id == 101 end).id == 101)
-  assert(array{{id=1},{id=101}, {id=3}}:find_index(function(e) return e.id == 101 end) == 2)
-  assert(array{1,{2},3}:flat() == array{1,2,3})
-  array{'a','b','c'}:for_each(print)
-  assert(array{1,2,3}:includes(1) == true)
-  assert(array{1,2,3}:includes(1, 4) == false)
-  assert(array{1,2,3}:includes(5) == false)
-  assert(array{'a','b'}:index_of('b') == 2)
-  assert(array{'a','b','c'}:join('|') == 'a|b|c')
-  assert(array{'a','b','c'}:keys() == array{1,2,3})
-  assert(array{'a','b','b','c'}:last_index_of('b',-1) == 3)
-  assert(array{'a','b','b','c'}:index_of('b') == 2)
-  assert(array{1,2,3}:map(function(n) return n+10 end) == array{11,12,13})
-  assert(array{1,2,100}:pop()==100)
-  assert(array{1,2,3}:reverse() == array{3,2,1})
-  local a = array{1,2,3}
-  assert(a:push(4,5,6)==6)
-  assert(a==array{1,2,3,4,5,6})
-  assert(a:shift()==1)
-  assert(a==array{2,3,4,5,6})
-  assert(array{1,2,3}:reduce(function(x,y) return x+y end) == 6)
-  assert(array{1,2,3,4}:slice() == array{1,2,3,4})
-  assert(array{1,2,3,4}:slice(2) == array{2,3,4})
-  assert(array{1,2,3,4}:slice(1,-1) == array{1,2,3,4})
-  assert(array{1,2,3,4}:slice(2,3) == array{2,3})
-  assert(array{1,2,3}:some(function(n) return n < 0 end) == false)
-  assert(array{-1,2,3}:some(function(n) return n < 0 end) == true)
-  local b = array{}
-  assert(b:splice(1,0,1,2,3,4) == array{})
-  assert(b == array{1,2,3,4})
-  assert(b:splice(1,1) == array{1})
-  assert(b == array{2,3,4})
-  assert(b:splice(2,1,5,6) == array{3})
-  assert(b == array{2,5,6,4})
-  local c = array{}
-  assert(c:unshift('c','d','e')==3)
-  assert(c == array{'c','d','e'})
-  p(c)
-  assert(c:unshift('a','b')==5)
-  assert(c == array{'a','b','c','d','e'})
-  assert(array{{id=1},{id=101}, {id=3}}:map_key('id')==array{1,101,3})
-  assert(array{1,2,2,3}:dup()==2)
-  assert(array{1,2,2,3,4,4,4,5}:dups()==array{2,2,4,4,4})
-  assert(array{1,2,2,3,4,4,4,5}:uniq()==array{1,2,3,4,5})
+  return res
+end
+
+function array.count(self, callback)
+  local res = 0
+  for i = 1, #self do
+    if callback(self[i], i, self) then
+      res = res + 1
+    end
+  end
+  return res
+end
+
+function array.count_exclude(self, callback)
+  local res = 0
+  for i = 1, #self do
+    if not callback(self[i], i, self) then
+      res = res + 1
+    end
+  end
+  return res
+end
+
+function array.combine(self, n)
+  if #self == n then
+    return array { self }
+  elseif n == 1 then
+    return array.map(self, function(e)
+      return array { e }
+    end)
+  elseif #self > n then
+    local head = self[1]
+    local rest = array.slice(self, 2)
+    return array.concat(array.combine(rest, n), array.combine(rest, n - 1):map(function(e)
+      return array { head, unpack(e) }
+    end))
+  else
+    return array {}
+  end
 end
 
 return array
