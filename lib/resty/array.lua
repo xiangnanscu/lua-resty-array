@@ -1,24 +1,14 @@
 local basearray_setup = require("resty.basearray").setup
-local table_concat = table.concat
-local table_remove = table.remove
-local table_insert = table.insert
-local table_sort = table.sort
+local object = require("resty.object")
 local select = select
-local error = error
-local table_new, table_clear, clone
+local table_new, clone
 if ngx then
-  table_clear = table.clear
   table_new = table.new
   clone = require("table.clone")
 else
   local pairs = pairs
   table_new = function(narray, nhash)
     return {}
-  end
-  table_clear = function(self)
-    for key, _ in pairs(self) do
-      self[key] = nil
-    end
   end
   clone = function(self)
     local copy = {}
@@ -29,41 +19,50 @@ else
   end
 end
 
-local function resolve_index(self, index, is_end, no_max)
-  if index == nil then
-    return is_end and #self or 1
-  elseif index == 0 then
-    return 1
-  elseif index < 0 then
-    if #self + index >= 0 then
-      return #self + index + 1
-    else
-      return 1
-    end
-    -- index >= 1
-  elseif index > #self then
-    if not no_max then
-      return #self == 0 and 1 or #self
-    else
-      return index
-    end
-  else
-    return index
-  end
-end
-
-local array = setmetatable({}, {
-  __call = function(self, attrs)
-    return setmetatable(attrs or {}, self)
-  end
-})
-array.__index = array
-function array.new(cls, self)
-  return setmetatable(self or {}, cls)
-end
-
+local array = setmetatable({}, { __call = object.__call, __tostring = getmetatable(object).__call })
 basearray_setup(array)
+array.__call = object.__call
+array.__tostring = object.__tostring
+array.__name__ = 'array'
+array.__index = array
+array.__bases__ = { object }
+array.__mro__ = { array, object }
 
+function array.equals(self, o)
+  if type(o) ~= 'table' or #o ~= #self then
+    return false
+  end
+  for i = 1, #self do
+    if self[i] ~= o[i] then
+      local tt, ot = type(self[i]), type(o[i])
+      if tt ~= ot then
+        return false
+      elseif tt ~= 'table' then
+        return false
+      elseif not array.equals(self[i], o[i]) then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+-- {1,2} == {1,2}, {1,{2}} == {1,{2}}
+array.__eq = array.equals
+
+function array.new(cls)
+  return setmetatable({}, cls)
+end
+
+function array.init(self, ...)
+  for i = 1, select("#", ...) do
+    local a = select(i, ...)
+    for j = 1, #a do
+      self[#self + 1] = a[j]
+    end
+  end
+  return self
+end
 
 function array.entries(self)
   local n = #self
@@ -85,44 +84,6 @@ end
 
 function array.values(self)
   return setmetatable(clone(self), array)
-end
-
-function array.equals(self, o)
-  if type(o) ~= 'table' or #o ~= #self then
-    return false
-  end
-  for i = 1, #self do
-    local tt, ot = type(self[i]), type(o[i])
-    if tt ~= ot then
-      return false
-    elseif tt ~= 'table' then
-      if self[i] ~= o[i] then
-        return false
-      end
-    elseif not array.equals(self[i], o[i]) then
-      return false
-    end
-  end
-  return true
-end
-
--- {1,2} == {1,2}
-array.__eq = array.equals
--- {1,2} + {2,3} = {1,2,2,3}
-function array.__add(self, o)
-  return array.concat(self, o)
-end
-
--- {1,2} - {2,3} = {1}
-function array.__sub(self, o)
-  local res = setmetatable({}, array)
-  local od = o:as_set()
-  for i = 1, #self do
-    if not od[self[i]] then
-      res[#res + 1] = self[i]
-    end
-  end
-  return res
 end
 
 return array
