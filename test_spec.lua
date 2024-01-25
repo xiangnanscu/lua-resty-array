@@ -1,4 +1,4 @@
-local array = require('./resty/array')
+local array = require('./lib/resty/array')
 local p = function(e)
   print(e)
 end
