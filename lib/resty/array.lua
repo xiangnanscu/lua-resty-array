@@ -1,4 +1,4 @@
-local object = require("resty.object")
+local Object = require("resty.object")
 local select = select
 local table_concat = table.concat
 local table_remove = table.remove
@@ -54,15 +54,15 @@ end
 
 ---@class Array<T>: { [integer]: T }
 ---@overload fun(t?:table):Array
-local Array = setmetatable({}, { __call = object.__call, __tostring = getmetatable(object).__call })
+local Array = setmetatable({}, { __call = Object.__call, __tostring = getmetatable(Object).__call })
 
 
-Array.__call = object.__call
-Array.__tostring = object.__tostring
+Array.__call = Object.__call
+Array.__tostring = Object.__tostring
 Array.__name__ = 'Array'
 Array.__index = Array
-Array.__bases__ = { object }
-Array.__mro__ = { Array, object }
+Array.__bases__ = { Object }
+Array.__mro__ = { Array, Object }
 
 -- {1,2} + {2,3} = {1,2,2,3}
 ---@param self Array
